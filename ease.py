@@ -1,3 +1,4 @@
+import click
 import numpy
 import tqdm
 
@@ -59,16 +60,17 @@ class EaseApprox(EaseModel):
         diags = numpy.diag_indices(i)
         G = X.T.dot(X)
         gd = numpy.diag(G)
-        B = (G > 0) * 1.0
+        B = G
         B[diags] = 0.0
         lr = 1.0
         for _ in tqdm.tqdm(range(1000)):
             Z = -G + (gd * B.T).T
             Z += lambda_
-            Z = Z.clip(min=-2.0, max=2.0)
+            Z = Z.clip(min=-5, max=5)
             B -= Z * lr
             B[diags] = 0.0
             lr = max(0.001, lr * 0.99)
+            B = B.clip(min=-0.8, max=0.9)
         while self.loss(X, B * 0.9, lambda_) < self.loss(X, B, lambda_):
             B *= 0.9
         return B.astype(numpy.float32)
@@ -91,36 +93,55 @@ def test(name, modelClass, X, lambda_, small=True):
     print()
 
 
-X_trivial = numpy.array(
-    [
-        [1, 1, 0],
-    ],
-    dtype="f",
-)
-test("EaseExact with X_trivial", EaseExact, X_trivial, 0.0001)
-test("EaseApprox with X_trivial", EaseApprox, X_trivial, 0.0001)
+@click.group()
+def main():
+    pass
 
-X = numpy.array(
-    [
-        [1, 1, 1, 0, 0],
-        [1, 1, 0, 1, 0],
-        [0, 0, 0, 1, 1],
-    ],
-    dtype="f",
-)
-test("EaseExact with X", EaseExact, X, 0.1)
-test("EaseApprox with X", EaseApprox, X, 0.1)
 
-u = 5
-i = 5
-X_random = (numpy.random.randn(u, i) > 0.1) * 1.0
-test("EaseExact with X_random", EaseExact, X_random, 0.1)
-test("EaseApprox with X_random", EaseApprox, X_random, 0.1)
+@main.command()
+def trivial():
+    X_trivial = numpy.array(
+        [
+            [1, 1, 0],
+        ],
+        dtype="f",
+    )
+    test("EaseExact with X_trivial", EaseExact, X_trivial, 0.0001)
+    test("EaseApprox with X_trivial", EaseApprox, X_trivial, 0.0001)
 
-u = 2000
-i = 1000
-X_large = (numpy.random.randn(u, i) > 1.0) * 1.0
-test("EaseExact with X_large", EaseExact, X_large, 0.1, small=False)
-test(
-    "EaseApprox with X_large", EaseApprox, X_large, 0.1, small=False
-)  # not good performanct
+
+@main.command()
+def simple():
+    X_simple = numpy.array(
+        [
+            [1, 1, 1, 0, 0],
+            [1, 1, 0, 1, 0],
+            [0, 0, 0, 1, 1],
+        ],
+        dtype="f",
+    )
+    test("EaseExact with X_simple", EaseExact, X_simple, 0.1)
+    test("EaseApprox with X_simple", EaseApprox, X_simple, 0.1)
+
+
+@main.command()
+def random():
+    u = 5
+    i = 5
+    X_random = (numpy.random.randn(u, i) > 0.1) * 1.0
+    test("EaseExact with X_random", EaseExact, X_random, 0.1)
+    test("EaseApprox with X_random", EaseApprox, X_random, 0.1)
+
+
+@main.command()
+def large():
+    u = 2000
+    i = 1000
+    X_large = (numpy.random.randn(u, i) > 1.0) * 1.0
+    test("EaseExact with X_large", EaseExact, X_large, 0.1, small=False)
+    test(
+        "EaseApprox with X_large", EaseApprox, X_large, 0.1, small=False
+    )  # not good performanct
+
+
+main()
