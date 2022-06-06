@@ -64,12 +64,14 @@ class EaseApprox(EaseModel):
         B[diags] = 0.0
         lr = 1.0
         for _ in tqdm.tqdm(range(1000)):
-            Z = -G + ((gd + lambda_) * B.T).T
+            Z = -G + ((gd + lambda_) * B.T).T  # approx
+            # Z = -G + G.dot(B)  # proper grad
             Z = Z.clip(min=-5, max=5)
             B -= Z * lr
             lr = max(0.001, lr * 0.99)
             B = B.clip(min=-0.99, max=0.99)
-            B[diags] = 0.0
+            B[diags] *= 0.96
+        B[diags] = 0
         while self.loss(X, B * 0.9, lambda_) < self.loss(X, B, lambda_):
             B *= 0.9
         return B.astype(numpy.float32)
