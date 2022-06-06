@@ -60,17 +60,16 @@ class EaseApprox(EaseModel):
         diags = numpy.diag_indices(i)
         G = X.T.dot(X)
         gd = numpy.diag(G)
-        B = G
+        B = G / (gd + lambda_)
         B[diags] = 0.0
         lr = 1.0
         for _ in tqdm.tqdm(range(1000)):
-            Z = -G + (gd * B.T).T
-            Z += lambda_
+            Z = -G + ((gd + lambda_) * B.T).T
             Z = Z.clip(min=-5, max=5)
             B -= Z * lr
-            B[diags] = 0.0
             lr = max(0.001, lr * 0.99)
-            B = B.clip(min=-0.8, max=0.9)
+            B = B.clip(min=-0.99, max=0.99)
+            B[diags] = 0.0
         while self.loss(X, B * 0.9, lambda_) < self.loss(X, B, lambda_):
             B *= 0.9
         return B.astype(numpy.float32)
